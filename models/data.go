@@ -9,7 +9,7 @@ import (
 )
 
 type RawSqlUser struct {
-	User       string
+	User       string 
 	City       *string
 	Region     *string
 	Country    *string
@@ -92,5 +92,3 @@ func StmtSelectUser(db *sql.DB) func() *sql.Stmt {
 		return stmt
 	}
 }
-
-

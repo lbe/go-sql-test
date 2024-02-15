@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"time"
 
-	. "github.com/go-jet/jet/v2/sqlite"
+	"github.com/go-faker/faker/v4"
+	//. "github.com/go-jet/jet/v2/sqlite"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/schollz/progressbar/v3"
 
@@ -21,8 +21,16 @@ type opts struct {
 	useTransaction *bool
 }
 
-type structData struct {
-	fakeData []models.RawSqlUser
+type structFakeData struct {
+	User       string            `faker:"username"`
+	Address    faker.RealAddress `faker:"real_address"`
+	Country    string            `faker:"oneof: US CA MX UK AU AT DE"`
+	AreaCode   string            `faker:"boundary_start=100, boundary_end=999"`
+	ZipCode    string            `faker:"boundary_start=10000, boundary_end=99999"`
+	YearBirth  int32             `faker:"boundary_start=1920, boundary_end=2006"`
+	Name       string            `faker:"name"`
+	CreatedTst string            `faker:"timestamp"`
+	ChangedTst string            `faker:"timestamp"`
 }
 
 func getPtrNullableString(str string) *string {
@@ -41,7 +49,7 @@ func getPtrNullableInt(i int32) *int32 {
 	}
 }
 
-func db_init() (db *sql.DB, err error) {
+func dbInit() (db *sql.DB, err error) {
 	dbFileName := "./data/wl.sqlite"
 	log.Printf("dbFilename = %s\n", dbFileName)
 
@@ -62,12 +70,72 @@ func db_init() (db *sql.DB, err error) {
 	return
 }
 
-func genData() (fakeData structData, err error) {
-
+func dbCreateSchema(opt opts) (err error) {
+	const dbDDL = `
+		CREATE TABLE IF NOT EXISTS "user" (
+			"user" TEXT NOT NULL,
+			city TEXT,
+			region TEXT,
+			country TEXT,
+			area_code TEXT,
+			zip_code TEXT,
+			year_birth INTEGER,
+			im TEXT,
+			name TEXT,
+			created_tst DATETIME NOT NULL DEFAULT (STRFTIME('%F %T','now','localtime')),
+			changed_tst DATETIME NOT NULL DEFAULT (STRFTIME('%F %T','now','localtime')),
+			CONSTRAINT USER_PK PRIMARY KEY ("user")
+		);
+		CREATE TRIGGER trg_user_update AFTER UPDATE
+			OF user, city, region, country, area_code, zip_code, year_birth, im, name_female, name_male, target, shared, active
+			ON user
+		BEGIN
+		UPDATE user
+			SET changed_tst = STRFTIME('%F %T','now','localtime')
+		WHERE old.user = new.user;
+		END;
+	`
+	_, err = opt.db.Exec(dbDDL)
 	return
 }
 
-func withRawSQLUpsert(data structData, opt opts) {
+func dbCleanUp(opt opts) (err error) {
+	_, err = opt.db.Exec(`DELETE user;`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = opt.db.Exec(`VACUUM;`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+func genData() (fakeData []models.RawSqlUser, err error) {
+	for i := 0; i <= 11000; i++ {
+		a := structFakeData{}
+		err := faker.FakeData(&a)
+		if err != nil {
+			fmt.Println(err)
+		}
+		im := `@` + a.User
+		s := models.RawSqlUser{
+			User:      a.User,
+			City:      &a.Address.City,
+			Region:    &a.Address.State,
+			Country:   &a.Country,
+			AreaCode:  &a.AreaCode,
+			ZipCode:   &a.ZipCode,
+			YearBirth: &a.YearBirth,
+			Im:        &im,
+			Name:      &a.Name,
+		}
+		fakeData = append(fakeData, s)
+	}
+	return 
+}
+
+func withRawSQLUpsert(data []models.RawSqlUser, opt opts) {
 	log.Println("Executing withRawSQLUpsert")
 
 	var tx *sql.Tx
@@ -84,16 +152,16 @@ func withRawSQLUpsert(data structData, opt opts) {
 
 	upsertUser := models.StmtUpsertUser(opt.db)
 	bar := progressbar.Default(int64(len(data)))
-	for _, row := range data {
-		var rec models.RawSqlUser
-		
+	for _, rec := range data {
+
 		if *opt.useTransaction {
-			_, err = tx.Stmt(upsertUser()).Exec(rec)
+			_, err := tx.Stmt(upsertUser()).Exec(rec.User, rec.City, rec.Region, rec.Country,
+				rec.AreaCode, rec.ZipCode, rec.YearBirth, rec.Im, rec.Name)
 			if err != nil {
 				log.Fatal(err)
-		}
+			}
 		} else {
-			_, err = upsertUser().Exec(rec)
+			_, err := upsertUser().Exec(rec)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -109,6 +177,7 @@ func withRawSQLUpsert(data structData, opt opts) {
 	}
 }
 
+/*
 func withJet(data structData, opt opts) {
 	log.Println("Executing withJet")
 
@@ -127,10 +196,10 @@ func withJet(data structData, opt opts) {
 	bar := progressbar.Default(int64(len(data.Rows)))
 	for _, row := range data.Rows {
 		var rec model.User
-		
+
 		columnList := ColumnList{
 			User.User, User.City, User.Region, User.Country, User.AreaCode, User.ZipCode,
-			User.YearBirth, User.Im, User.Name, 		
+			User.YearBirth, User.Im, User.Name,
 		}
 
 		stmtInserUser := User.INSERT(columnList).
@@ -178,6 +247,7 @@ func withJet(data structData, opt opts) {
 
 	return
 }
+*/
 
 func main() {
 	log.Println("Execution Starting")
@@ -187,17 +257,28 @@ func main() {
 	opt.useJet = flag.Bool("useJet", false, "Run using Jet module")
 	opt.useTransaction = flag.Bool("useTransaction", false, "Wrap work in transaction")
 	flag.Parse()
-	
-	db, err := db_init()
+
+	var err error
+	opt.db, err = dbInit()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if *opt.useJet {
-		withJet(data, opt)
-	} else {
-		withRawSQLUpsert(data, opt)
+	err = dbCleanUp(opt)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	data, err := genData()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//if *opt.useJet {
+	//	withJet(data, opt)
+	//} else {
+	withRawSQLUpsert(data, opt)
+	//}
 
 	log.Println("Exection Completed")
 }
