@@ -9,7 +9,7 @@ import (
 )
 
 type RawSqlUser struct {
-	User       string 
+	User       string
 	City       *string
 	Region     *string
 	Country    *string
@@ -45,7 +45,7 @@ func StmtUpsertUser(db *sql.DB) func() *sql.Stmt {
 			    , zip_code    = excluded.zip_code
 			    , year_birth  = excluded.year_birth
 			    , im          = excluded.im
-			    , name        = excluded.name
+			    , name = excluded.name
 		    WHERE city       IS NOT excluded.city
 		       OR region      IS NOT excluded.region
 		       OR country     IS NOT excluded.country
@@ -53,7 +53,7 @@ func StmtUpsertUser(db *sql.DB) func() *sql.Stmt {
 		       OR zip_code    IS NOT excluded.zip_code
 		       OR year_birth  IS NOT excluded.year_birth
 		       OR im          IS NOT excluded.im
-		       OR name        IS NOT excluded.name
+		       OR name IS NOT excluded.name
 	;`
 
 	stmt, err := db.Prepare(sqlUpsertUser)
