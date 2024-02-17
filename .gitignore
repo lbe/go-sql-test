@@ -129,3 +129,4 @@ $RECYCLE.BIN/
 
 # ignore data folder
 data/
+go-sql-test
