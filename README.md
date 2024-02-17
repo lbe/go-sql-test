@@ -5,7 +5,8 @@ using both raw SQL and the Jet package.  Both of these approaches depend upon th
 library [database/sql](https://pkg.go.dev/database/sql) and the 
 [mattn/go-sqlite3](https://pkg.go.dev/github.com/mattn/go-sqlite3) driver.
 
-The motivation behind creating this project is to support a pull request that I made to the 
+The motivation behind creating this project is to support a 
+[pull request](https://github.com/go-jet/jet/issues/322) that I made to the 
 Jet project to support prepared statements.  I am working on a project similar to those that
 I have written in other languages where I have received performance benefits from using prepared 
 statements with the largest benefit coming from mass insertions.
