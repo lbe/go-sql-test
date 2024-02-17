@@ -67,6 +67,7 @@ The following show the command to run both scenarios inside a transaction with t
 2024/02/17 16:40:46 Commit Start
 2024/02/17 16:40:46 Commit Finished
 2024/02/17 16:40:46 Execution Completed
+```
 
 The insert rate with the RawSQL prepared statement (100,602 per sec) is almost 10 times that of the non-prepared Jet case (11,311 per second).
 
