@@ -21,9 +21,9 @@ import (
 	"github.com/lbe/go-sql-test/models"
 )
 
+// structure in which to store command flag values and the database connection
 type opts struct {
 	db             *sql.DB
-	flipYearBirth  *bool
 	rowCount       *int
 	updateCount    *int
 	useBoth        *bool
@@ -32,6 +32,7 @@ type opts struct {
 	useTransaction *bool
 }
 
+// structure use when calling the faker package to generate fake data
 type structFakeData struct {
 	User      string            `faker:"username"`
 	Address   faker.RealAddress `faker:"real_address"`
@@ -42,13 +43,17 @@ type structFakeData struct {
 	Name      string            `faker:"name"`
 }
 
+// global variable to store command line flags and database connection
 var opt opts
 
+// getPtrNullableStringFromInt generates a string pointer from an integer
 func getPtrNullableStringFromInt(i int32) *string {
 	str := strconv.FormatInt(int64(i), 10)
 	return &str
 }
 
+// dbCleanUp deletes all rows in the test "user" table and vacuums the SQLite database
+// at the beginning of a run and between RawSQL and Jet when both are being run
 func dbCleanUp() (err error) {
 	_, err = opt.db.Exec(`DELETE FROM user;`)
 	if err != nil {
@@ -63,6 +68,7 @@ func dbCleanUp() (err error) {
 	return
 }
 
+// dbCreateSchema creates the schema for the "user" table used for testing
 func dbCreateSchema() (err error) {
 	const dbDDL = `
 	CREATE TABLE IF NOT EXISTS user (
@@ -96,6 +102,7 @@ func dbCreateSchema() (err error) {
 	return
 }
 
+// dbInit creates a connection to the database and creates the schema if needed
 func dbInit() (err error) {
 	dbFileName := "./data/go-sql-test.sqlite"
 	log.Printf("dbFilename = %s\n", dbFileName)
@@ -138,6 +145,9 @@ func dbInit() (err error) {
 	return
 }
 
+// genData generates fake data using the module faker.  The fake data is based 
+// upon the structFakeData structure,  The number of rows created defined
+// by the rowCount command line flag and defaults to 100009
 func genData() (fakeData []model.User, err error) {
 	for i := 0; i < *opt.rowCount; i++ {
 		a := structFakeData{}
@@ -163,6 +173,7 @@ func genData() (fakeData []model.User, err error) {
 	return
 }
 
+// insertWithRawSQLUpsert performs the RawSQL insert scenario
 func insertWithRawSQLUpsert(data []model.User) {
 	log.Println("Executing insertWithRawSQLUpsert")
 
@@ -212,6 +223,7 @@ func insertWithRawSQLUpsert(data []model.User) {
 	}
 }
 
+// updateWithRawSQLUpsert performs the RawSQL update scenario
 func updateWithRawSQLUpsert(data []model.User) {
 	if *opt.updateCount == 0 {
 		return
@@ -270,6 +282,7 @@ func updateWithRawSQLUpsert(data []model.User) {
 	}
 }
 
+// selectWithRawSQLUpsert performs the RawSQL select scenario
 func selectWithRawSQLUpsert(data []model.User) {
 	log.Println("Executing selectWithRawSQLUpsert")
 
@@ -328,6 +341,7 @@ func selectWithRawSQLUpsert(data []model.User) {
 	}
 }
 
+// insertWithJetUpsert performs the Jet insert scenario
 func insertWithJet(data []model.User) {
 	log.Println("Executing insertWithJet")
 
@@ -402,6 +416,7 @@ func insertWithJet(data []model.User) {
 	return
 }
 
+// updateWithRawSQLUpsert performs the RawSQL update scenario
 func updateWithJet(data []model.User) {
 	if *opt.updateCount == 0 {
 		return
@@ -485,6 +500,7 @@ func updateWithJet(data []model.User) {
 	return
 }
 
+// selectWithRawSQLUpsert performs the RawSQL select scenario
 func selectWithJet(data []model.User) {
 	log.Println("Executing selectWithJet")
 
@@ -543,7 +559,6 @@ func main() {
 	log.Println("Execution Starting")
 
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
-	opt.flipYearBirth = flag.Bool("flipYearBirth", false, "Flip YearBirth generation for Upsert Testing")
 	opt.rowCount = flag.Int("rowCount", 10000, "Number of rows to use in test")
 	opt.updateCount = flag.Int("updateCount", 1000, "Maximum number of updates to perform")
 	opt.useBoth = flag.Bool("useBoth", false, "Run both RawSql and Jet")
@@ -617,5 +632,5 @@ func main() {
 		selectWithJet(data)
 	}
 
-	log.Println("Exection Completed")
+	log.Println("Execution Completed")
 }
