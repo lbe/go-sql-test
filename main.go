@@ -44,25 +44,6 @@ type structFakeData struct {
 
 var opt opts
 
-/*
-func getPtrNullableString(str string) *string {
-	str = strings.TrimSpace(str)
-	if str == "" {
-		return nil
-	} else {
-		return &str
-	}
-}
-
-func getPtrNullableInt(i int32) *int32 {
-	if i == 0 {
-		return nil
-	} else {
-		return &i
-	}
-}
-*/
-
 func getPtrNullableStringFromInt(i int32) *string {
 	str := strconv.FormatInt(int64(i), 10)
 	return &str
