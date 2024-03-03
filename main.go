@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"log"
@@ -145,7 +146,7 @@ func dbInit() (err error) {
 	return
 }
 
-// genData generates fake data using the module faker.  The fake data is based 
+// genData generates fake data using the module faker.  The fake data is based
 // upon the structFakeData structure,  The number of rows created defined
 // by the rowCount command line flag and defaults to 100009
 func genData() (fakeData []model.User, err error) {
@@ -358,6 +359,13 @@ func insertWithJet(data []model.User) {
 		defer tx.Rollback()
 	}
 
+	// we first need to define prepared statement
+	var prepStmt PreparedStatement
+	// make sure prep stmt is eventually closed. It is ok to call close if prepStmt is not initialized.
+	defer prepStmt.Close()
+
+	ctx := context.TODO() 
+
 	bar := progressbar.Default(int64(len(data)))
 	for _, rec := range data {
 
@@ -391,11 +399,16 @@ func insertWithJet(data []model.User) {
 		// sql_debug := stmtInserUser.DebugSql()
 		// fmt.Println(sql_debug)
 		if *opt.useTransaction {
-			_, err := stmtInserUser.Exec(tx)
+			err := prepStmt.Prepare(ctx, tx, stmtInserUser)
 			if err != nil {
 				_, filename, line, _ := runtime.Caller(1)
 				log.Fatalf("[error] %s:%d %v", filename, line, err)
-			}
+			} 
+			_, err = prepStmt.Exec(ctx)
+			if err != nil {
+				_, filename, line, _ := runtime.Caller(1)
+				log.Fatalf("[error] %s:%d %v", filename, line, err)
+			} 
 		} else {
 			_, err := stmtInserUser.Exec(opt.db)
 			if err != nil {
@@ -420,7 +433,7 @@ func insertWithJet(data []model.User) {
 func updateWithJet(data []model.User) {
 	if *opt.updateCount == 0 {
 		return
-	} 
+	}
 	log.Println("Executing updateWithJet")
 
 	var tx *sql.Tx
@@ -437,13 +450,13 @@ func updateWithJet(data []model.User) {
 	}
 
 	updateCount := 0
-	bar := progressbar.Default(int64(*opt.updateCount)) //(len(data))) 
-	for _, rec := range data { 
+	bar := progressbar.Default(int64(*opt.updateCount)) //(len(data)))
+	for _, rec := range data {
 		updateCount++
 		if updateCount >= *opt.updateCount {
 			break
 		}
-		*rec.YearBirth-- 
+		*rec.YearBirth--
 
 		columnList := ColumnList{
 			User.User, User.City, User.Region, User.Country, User.AreaCode, User.ZipCode,
